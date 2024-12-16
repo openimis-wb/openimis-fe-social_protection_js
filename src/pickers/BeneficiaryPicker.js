@@ -127,7 +127,7 @@ function BeneficiaryPicker(props) {
       options={beneficiaries ?? []}
       isLoading={isLoading}
       value={value}
-      getOptionLabel={(option) => `${option.jsonExt.national_id}`}
+      getOptionLabel={(option) => `${option.individual.firstName} ${option.individual.lastName} ${option.individual.dob}`}
       onChange={(value) => onChange(value, value ? `${value.firstName} ${value.lastName} ${value.dob}` : null)}
       setCurrentString={setCurrentString}
       filterOptions={filter}
