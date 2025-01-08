@@ -1,3 +1,5 @@
+/* eslint-disable react/jsx-one-expression-per-line */
+/* eslint-disable react/jsx-no-useless-fragment */
 import React, { useEffect, useState } from 'react';
 import {
   Input, Grid, MenuItem, Typography, Select,
