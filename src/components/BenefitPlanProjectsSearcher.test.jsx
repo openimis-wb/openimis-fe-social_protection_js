@@ -14,7 +14,7 @@ vi.mock('@openimis/fe-core', () => ({
   formatDateFromISO: () => '',
   withModulesManager: (component) => component,
   withHistory: (component) => component,
-  useModulesManager: () => ({ getRef: () => null }),
+  useModulesManager: () => ({ getRef: () => null, getConf: (module, key, defaultValue) => defaultValue }),
   useHistory: () => ({ push: vi.fn() }),
   historyPush: vi.fn(),
   coreConfirm: vi.fn(() => ({ type: 'CORE_CONFIRM' })),

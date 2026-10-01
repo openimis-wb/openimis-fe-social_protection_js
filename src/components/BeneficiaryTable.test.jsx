@@ -15,7 +15,7 @@ vi.mock('@openimis/fe-core', () => ({
   GetIconComponent: (name) => function Icon() { return <span>{name}</span>; },
   formatMessage: (intl, module, key) => key,
   fetchCustomFilter: vi.fn(() => ({ type: 'FETCH_CUSTOM_FILTER' })),
-  useModulesManager: () => ({ getConf: (module, key, defaultValue) => defaultValue }),
+  useModulesManager: () => ({ getConf: (module, key, defaultValue) => defaultValue, getRef: () => null }),
 }));
 
 vi.mock('react-intl', () => ({
