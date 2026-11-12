@@ -70,6 +70,7 @@ export const ACTION_TYPE = {
   REMOVE_PROGRAMME_MEMBERS: 'PROGRAMME_REMOVE_MEMBERS',
   GET_MY_PROGRAMMES: 'PROGRAMME_MY_PROGRAMMES',
   SET_MY_DEFAULT_PROGRAMME: 'PROGRAMME_SET_MY_DEFAULT',
+  SET_BENEFIT_PLAN_PROGRAMME: 'BENEFIT_PLAN_SET_PROGRAMME',
 };
 
 function reducer(
@@ -298,6 +299,8 @@ function reducer(
       return dispatchMutationResp(state, 'addProgrammeMembers', action);
     case SUCCESS(ACTION_TYPE.REMOVE_PROGRAMME_MEMBERS):
       return dispatchMutationResp(state, 'removeProgrammeMembers', action);
+    case SUCCESS(ACTION_TYPE.SET_BENEFIT_PLAN_PROGRAMME):
+      return dispatchMutationResp(state, 'setBenefitPlanProgramme', action);
     case SUCCESS(ACTION_TYPE.SET_MY_DEFAULT_PROGRAMME):
       return dispatchMutationResp(state, 'setMyDefaultProgramme', action);
     case REQUEST(ACTION_TYPE.GET_FIELDS_FROM_BF_SCHEMA):

@@ -365,22 +365,18 @@ function dateTimeToDate(date) {
 }
 
 // Raw programme uuid of a benefit plan form value; falsy when the plan has no programme or it is not loaded.
-function programmeUuid(programme) {
+export function programmeUuid(programme) {
   if (!programme) return null;
   return (programme.uuid ?? (programme.id ? decodeId(programme.id) : null))?.toLowerCase() ?? null;
 }
 
-// Create sends programmeId when a programme is chosen. Update sends programmeId only when the
-// programme differs from the saved one, and detachProgramme: true when it was removed; otherwise neither.
-function formatProgrammeGQL(benefitPlan, savedBenefitPlan) {
+// Only create carries the programme; an existing plan's programme changes through setBenefitPlanProgramme.
+function formatProgrammeGQL(benefitPlan) {
   const uuid = programmeUuid(benefitPlan?.programme);
-  if (!benefitPlan?.id) return uuid ? `programmeId: "${uuid}"` : '';
-  const savedUuid = programmeUuid(savedBenefitPlan?.programme);
-  if (uuid) return uuid === savedUuid ? '' : `programmeId: "${uuid}"`;
-  return savedUuid && benefitPlan.programme === null ? 'detachProgramme: true' : '';
+  return !benefitPlan?.id && uuid ? `programmeId: "${uuid}"` : '';
 }
 
-export function formatBenefitPlanGQL(benefitPlan, savedBenefitPlan) {
+export function formatBenefitPlanGQL(benefitPlan) {
   return `
     ${benefitPlan?.id ? `id: "${benefitPlan.id}"` : ''}
     ${benefitPlan?.name ? `name: "${formatGQLString(benefitPlan.name)}"` : ''}
@@ -395,7 +391,7 @@ export function formatBenefitPlanGQL(benefitPlan, savedBenefitPlan) {
     ${benefitPlan?.beneficiaryDataSchema
     ? `beneficiaryDataSchema: ${JSON.stringify(benefitPlan.beneficiaryDataSchema)}` : 'beneficiaryDataSchema: "{}"'}
     ${benefitPlan?.jsonExt ? `jsonExt: ${JSON.stringify(benefitPlan.jsonExt)}` : ''}
-    ${formatProgrammeGQL(benefitPlan, savedBenefitPlan)}`;
+    ${formatProgrammeGQL(benefitPlan)}`;
 }
 
 function formatBeneficiaryGQL(beneficiary) {
@@ -434,12 +430,8 @@ export function createBenefitPlan(benefitPlan, clientMutationLabel) {
   );
 }
 
-export function updateBenefitPlan(benefitPlan, clientMutationLabel, savedBenefitPlan) {
-  const mutation = formatMutation(
-    'updateBenefitPlan',
-    formatBenefitPlanGQL(benefitPlan, savedBenefitPlan),
-    clientMutationLabel,
-  );
+export function updateBenefitPlan(benefitPlan, clientMutationLabel) {
+  const mutation = formatMutation('updateBenefitPlan', formatBenefitPlanGQL(benefitPlan), clientMutationLabel);
   const requestedDateTime = new Date();
   return graphql(
     mutation.payload,
@@ -986,7 +978,8 @@ export function awaitMutationOutcome(clientMutationId) {
   };
 }
 
-function programmeMutation(operation, input, successType, clientMutationLabel) {
+// `journal` is false when the caller already journalizes the mutation (benefit plan page).
+function programmeMutation(operation, input, successType, clientMutationLabel, journal = true) {
   const mutation = formatMutation(operation, input, clientMutationLabel);
   const requestedDateTime = new Date();
   return async (dispatch, getState) => {
@@ -1001,7 +994,7 @@ function programmeMutation(operation, input, successType, clientMutationLabel) {
       },
     ));
     const submitted = getState().socialProtection.mutation;
-    if (submitted?.clientMutationId === mutation.clientMutationId) {
+    if (journal && submitted?.clientMutationId === mutation.clientMutationId) {
       dispatch(journalize({ ...submitted }));
     }
     return dispatch(awaitMutationOutcome(mutation.clientMutationId));
@@ -1058,4 +1051,13 @@ export const setMyDefaultProgramme = (programmeId, clientMutationLabel) => progr
   `programmeId: "${programmeId}"`,
   ACTION_TYPE.SET_MY_DEFAULT_PROGRAMME,
   clientMutationLabel,
+);
+
+// Attaches, moves or (programmeUuid empty) detaches an existing benefit plan.
+export const setBenefitPlanProgramme = (benefitPlanId, programmeUuid, clientMutationLabel) => programmeMutation(
+  'setBenefitPlanProgramme',
+  `id: "${benefitPlanId}" ${programmeUuid ? `programmeId: "${programmeUuid}"` : ''}`,
+  ACTION_TYPE.SET_BENEFIT_PLAN_PROGRAMME,
+  clientMutationLabel,
+  false,
 );

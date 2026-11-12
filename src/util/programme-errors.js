@@ -11,7 +11,6 @@ export const PROGRAMME_ERROR_KEYS = {
   'social_protection.validation.programme.code_exists': 'programme.error.codeExists',
   'social_protection.validation.programme.has_benefit_plans': 'programme.error.hasBenefitPlans',
   'social_protection.programme.change_requires_superuser': 'programme.error.changeRequiresSuperuser',
-  'social_protection.programme.detach_with_programme': 'programme.error.detachWithProgramme',
   'social_protection.export.field_not_allowed': 'programme.error.exportFieldNotAllowed',
   'social_protection.validation.upload_not_in_benefit_plan': 'programme.error.uploadNotInBenefitPlan',
 };

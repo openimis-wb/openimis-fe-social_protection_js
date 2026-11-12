@@ -24,7 +24,7 @@ import {
 } from '../constants';
 import {
   fetchBenefitPlan, deleteBenefitPlan, closeBenefitPlan, updateBenefitPlan, clearBenefitPlan, createBenefitPlan,
-  undoDeleteBenefitPlan, awaitMutationOutcome,
+  undoDeleteBenefitPlan, awaitMutationOutcome, setBenefitPlanProgramme, programmeUuid,
 } from '../actions';
 import { isFailedOutcome, programmeErrorTranslationId, programmeFailureAlert } from '../util/programme-errors';
 import BenefitPlanHeadPanel from '../components/BenefitPlanHeadPanel';
@@ -61,6 +61,7 @@ function BenefitPlanPage({
   isBenefitPlanCodeValid,
   isBenefitPlanSchemaValid,
   awaitMutationOutcome,
+  setBenefitPlanProgramme,
   programmeFailureAlert,
 }) {
   const [editedBenefitPlan, setEditedBenefitPlan] = useState({});
@@ -151,13 +152,30 @@ function BenefitPlanPage({
 
   const canSave = () => !isMandatoryFieldsEmpty() && isValid() && doesBenefitPlanChange();
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const params = titleParams(editedBenefitPlan);
     if (benefitPlan?.id) {
+      const programmeChanged = programmeUuid(editedBenefitPlan?.programme) !== programmeUuid(benefitPlan.programme);
+      const otherFieldsChanged = !_.isEqual(_.omit(benefitPlan, 'programme'), _.omit(editedBenefitPlan, 'programme'));
+      if (programmeChanged) {
+        const outcome = await setBenefitPlanProgramme(
+          benefitPlan.id,
+          programmeUuid(editedBenefitPlan?.programme),
+          formatMessageWithValues(intl, 'socialProtection', 'programme.setBenefitPlanProgramme.mutationLabel', params),
+        );
+        if (isFailedOutcome(outcome)) {
+          // The refusal is alerted by the mutation watcher; nothing is saved and the form shows the real programme.
+          setEditedBenefitPlan({ ...editedBenefitPlan, programme: benefitPlan.programme });
+          return;
+        }
+        if (!otherFieldsChanged) {
+          fetchBenefitPlan(modulesManager, [`id: "${benefitPlan.id}"`]);
+          return;
+        }
+      }
       updateBenefitPlan(
         editedBenefitPlan,
         formatMessageWithValues(intl, 'socialProtection', 'benefitPlan.update.mutationLabel', params),
-        benefitPlan,
       );
     } else {
       createBenefitPlan(
@@ -312,6 +330,7 @@ const mapDispatchToProps = (dispatch) => bindActionCreators({
   clearConfirm,
   journalize,
   awaitMutationOutcome,
+  setBenefitPlanProgramme,
   programmeFailureAlert,
 }, dispatch);
 
