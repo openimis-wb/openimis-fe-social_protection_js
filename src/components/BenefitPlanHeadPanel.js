@@ -10,6 +10,7 @@ import {
   TextAreaInput,
   PublishedComponent,
   TextInput,
+  formatMessage,
 } from '@openimis/fe-core';
 import { injectIntl } from 'react-intl';
 import { withTheme, withStyles } from '@material-ui/core/styles';
@@ -27,6 +28,8 @@ import {
   benefitPlanSchemaValidationClear,
 } from '../actions';
 import BenefitPlanTypePicker from '../pickers/BenefitPlanTypePicker';
+import ProgrammePicker from '../pickers/ProgrammePicker';
+import { getActiveProgramme } from '../util/programme-context';
 
 const styles = (theme) => ({
   tableTitle: theme.table.title,
@@ -37,6 +40,30 @@ const styles = (theme) => ({
 });
 
 class BenefitPlanHeadPanel extends FormPanel {
+  componentDidMount() {
+    super.componentDidMount();
+    this.prefillProgramme();
+  }
+
+  componentDidUpdate(prevProps, prevState, snapshot) {
+    super.componentDidUpdate(prevProps, prevState, snapshot);
+    this.prefillProgramme();
+  }
+
+  // A new benefit plan starts in the active programme; done once, so that clearing the field sticks.
+  prefillProgramme() {
+    const {
+      edited, readOnly, myProgrammes, onEditedChanged,
+    } = this.props;
+    const activeUuid = getActiveProgramme();
+    if (this.programmePrefilled || readOnly || edited?.id || edited?.programme !== undefined || !activeUuid) return;
+    const membership = (myProgrammes || []).find((m) => m.programme?.uuid?.toLowerCase() === activeUuid);
+    if (!membership) return;
+    this.programmePrefilled = true;
+    const { id, uuid, code, name } = membership.programme;
+    onEditedChanged({ ...edited, programme: { id, uuid, code, name } });
+  }
+
   shouldValidate(inputValue, savedValue) {
     if (!savedValue) return false;
     return !this.props.edited?.id || inputValue !== savedValue;
@@ -44,6 +71,7 @@ class BenefitPlanHeadPanel extends FormPanel {
 
   render() {
     const {
+      intl,
       edited,
       classes,
       isBenefitPlanCodeValid,
@@ -159,6 +187,15 @@ class BenefitPlanHeadPanel extends FormPanel {
           />
         </Grid>
         <Grid item xs={3} className={classes.item}>
+          <ProgrammePicker
+            withLabel
+            label={formatMessage(intl, 'socialProtection', 'benefitPlan.programme')}
+            readOnly={!!benefitPlan?.isDeleted}
+            value={benefitPlan?.programme ?? null}
+            onChange={(v) => this.updateAttribute('programme', v ?? null)}
+          />
+        </Grid>
+        <Grid item xs={3} className={classes.item}>
           <TextAreaInput
             module="socialProtection"
             label="benefitPlan.description"
@@ -192,6 +229,7 @@ class BenefitPlanHeadPanel extends FormPanel {
 }
 
 const mapStateToProps = (store) => ({
+  myProgrammes: store.socialProtection.myProgrammes,
   isBenefitPlanCodeValid: store.socialProtection.validationFields?.benefitPlanCode?.isValid,
   isBenefitPlanCodeValidating: store.socialProtection.validationFields?.benefitPlanCode?.isValidating,
   benefitPlanCodeValidationError: store.socialProtection.validationFields?.benefitPlanCode?.validationError,

@@ -4,10 +4,11 @@
 import React from 'react';
 import { injectIntl } from 'react-intl';
 import { connect } from 'react-redux';
-import { Tune } from '@material-ui/icons';
+import { AccountTree, Tune } from '@material-ui/icons';
 import { formatMessage, MainMenuContribution, withModulesManager } from '@openimis/fe-core';
 import {
   RIGHT_BENEFIT_PLAN_SEARCH,
+  RIGHT_PROGRAMME_SEARCH,
   SOCIAL_PROTECTION_MAIN_MENU_CONTRIBUTION_KEY,
 } from '../constants';
 
@@ -19,6 +20,13 @@ function BenefitPlanMainMenu(props) {
       route: '/benefitPlans',
       filter: (rights) => rights.includes(RIGHT_BENEFIT_PLAN_SEARCH),
       id: 'socialProtection.benefitPlans',
+    },
+    {
+      text: formatMessage(props.intl, 'socialProtection', 'menu.socialProtection.programmes'),
+      icon: <AccountTree />,
+      route: '/programmes',
+      filter: (rights) => rights.includes(RIGHT_PROGRAMME_SEARCH),
+      id: 'socialProtection.programmes',
     },
   ];
   entries.push(

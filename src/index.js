@@ -3,7 +3,7 @@
 /* eslint-disable import/prefer-default-export */
 import flatten from 'flat';
 import React from 'react';
-import { Tune } from '@material-ui/icons';
+import { AccountTree, Tune } from '@material-ui/icons';
 import { FormattedMessage } from '@openimis/fe-core';
 import messages_en from './translations/en.json';
 import reducer from './reducer';
@@ -12,6 +12,11 @@ import BenefitPlansPage from './pages/BenefitPlansPage';
 import BenefitPlanPage from './pages/BenefitPlanPage';
 import BenefitPackagePage from './pages/BenefitPackagePage';
 import ProjectPage from './pages/ProjectPage';
+import ProgrammesPage from './pages/ProgrammesPage';
+import ProgrammePage from './pages/ProgrammePage';
+import ProgrammeBoot from './components/ProgrammeBoot';
+import ProgrammeSwitcher from './components/ProgrammeSwitcher';
+import ProgrammePicker from './pickers/ProgrammePicker';
 import BeneficiaryStatusPicker from './pickers/BeneficiaryStatusPicker';
 import {
   BenefitPlanBeneficiariesTabPanel,
@@ -75,7 +80,13 @@ import {
 } from './components/BenefitPlanProjectsTab';
 import { BenefitPlanChangelogTabLabel, BenefitPlanChangelogTabPanel } from './components/BenefitPlanChangelogTab';
 import { BenefitPlanTaskTabLabel, BenefitPlanTaskTabPanel } from './components/BenefitPlanTaskTab';
-import { BENEFIT_PLAN_LABEL, RIGHT_BENEFIT_PLAN_SEARCH } from './constants';
+import {
+  BENEFIT_PLAN_LABEL,
+  PROGRAMME_APP_BAR_CONTRIBUTION_KEY,
+  PROGRAMME_BOOT_CONTRIBUTION_KEY,
+  RIGHT_BENEFIT_PLAN_SEARCH,
+  RIGHT_PROGRAMME_SEARCH,
+} from './constants';
 import BeneficiaryPicker from './pickers/BeneficiaryPicker';
 import BenefitPlanProjectsSearcher from './components/BenefitPlanProjectsSearcher';
 import {
@@ -86,20 +97,26 @@ import {
   ProjectChangelogTabLabel,
   ProjectChangelogTabPanel,
 } from './components/ProjectChangelogTab';
-import projectBeneficiariesMiddleware from './middlewares';
+import projectBeneficiariesMiddleware, { invalidProgrammeHeaderMiddleware } from './middlewares';
 
 const ROUTE_BENEFIT_PLANS = 'benefitPlans';
 const ROUTE_BENEFIT_PLAN = 'benefitPlans/benefitPlan';
 const ROUTE_BENEFIT_PACKAGE = 'benefitPackage';
 const ROUTE_PROJECT = 'project';
+const ROUTE_PROGRAMMES = 'programmes';
+const ROUTE_PROGRAMME = 'programmes/programme';
 
 const DEFAULT_CONFIG = {
   translations: [{ key: 'en', messages: flatten(messages_en) }],
   reducers: [{ key: 'socialProtection', reducer }],
+  [PROGRAMME_BOOT_CONTRIBUTION_KEY]: [ProgrammeBoot],
+  [PROGRAMME_APP_BAR_CONTRIBUTION_KEY]: [ProgrammeSwitcher],
   'core.MainMenu': [{ name: 'BenefitPlanMainMenu', component: BenefitPlanMainMenu }],
   'core.Router': [
     { path: ROUTE_BENEFIT_PLANS, component: BenefitPlansPage },
     { path: `${ROUTE_BENEFIT_PLAN}/:benefit_plan_uuid?`, component: BenefitPlanPage },
+    { path: ROUTE_PROGRAMMES, component: ProgrammesPage },
+    { path: `${ROUTE_PROGRAMME}/:programme_uuid?`, component: ProgrammePage },
     {
       path: `${ROUTE_BENEFIT_PLAN}/:benefit_plan_uuid?/${ROUTE_BENEFIT_PACKAGE}/individual/:beneficiary_uuid?`,
       component: BenefitPackagePage,
@@ -117,12 +134,14 @@ const DEFAULT_CONFIG = {
     { key: 'socialProtection.route.benefitPlan', ref: ROUTE_BENEFIT_PLAN },
     { key: 'socialProtection.route.benefitPackage', ref: ROUTE_BENEFIT_PACKAGE },
     { key: 'socialProtection.route.project', ref: ROUTE_PROJECT },
+    { key: 'socialProtection.route.programme', ref: ROUTE_PROGRAMME },
     { key: 'socialProtection.BeneficiaryStatusPicker', ref: BeneficiaryStatusPicker },
     { key: 'socialProtection.BenefitPlanSearcher', ref: BenefitPlanSearcher },
     { key: 'socialProtection.BenefitPlanSearcherForEntities', ref: BenefitPlanSearcherForEntities },
     { key: 'socialProtection.BenefitPlanTaskPreviewTable', ref: BenefitPlanTaskPreviewTable },
     { key: 'socialProtection.BenefitPlanPicker', ref: BenefitPlanPicker },
     { key: 'socialProtection.ProjectPicker', ref: ProjectPicker },
+    { key: 'socialProtection.ProgrammePicker', ref: ProgrammePicker },
     { key: 'socialProtection.BenefitPlansListTabLabel', ref: BenefitPlansListTabLabel },
     { key: 'socialProtection.BenefitPlansListTabPanel', ref: BenefitPlansListTabPanel },
     { key: 'socialProtection.fetchBenefitPlanSchemaFields', ref: fetchBenefitPlanSchemaFields },
@@ -210,8 +229,15 @@ const DEFAULT_CONFIG = {
       filter: (rights) => rights.includes(RIGHT_BENEFIT_PLAN_SEARCH),
       id: 'socialProtection.benefitPlans',
     },
+    {
+      text: <FormattedMessage module="socialProtection" id="menu.socialProtection.programmes" />,
+      icon: <AccountTree />,
+      route: '/programmes',
+      filter: (rights) => rights.includes(RIGHT_PROGRAMME_SEARCH),
+      id: 'socialProtection.programmes',
+    },
   ],
-  middlewares: [projectBeneficiariesMiddleware],
+  middlewares: [projectBeneficiariesMiddleware, invalidProgrammeHeaderMiddleware],
 };
 
 export const SocialProtectionModule = (cfg) => ({ ...DEFAULT_CONFIG, ...cfg });

@@ -60,6 +60,16 @@ export const ACTION_TYPE = {
   PROJECT_ENROLL_GROUP: 'PROJECT_ENROLL_GROUP',
   BULK_UPDATE_BENEFICIARY_TIME_ENTRIES: 'BULK_UPDATE_BENEFICIARY_TIME_ENTRIES',
   BULK_UPDATE_GROUP_BENEFICIARY_TIME_ENTRIES: 'BULK_UPDATE_GROUP_BENEFICIARY_TIME_ENTRIES',
+  SEARCH_PROGRAMMES: 'PROGRAMME_PROGRAMMES',
+  GET_PROGRAMME: 'PROGRAMME_PROGRAMME',
+  CREATE_PROGRAMME: 'PROGRAMME_CREATE_PROGRAMME',
+  UPDATE_PROGRAMME: 'PROGRAMME_UPDATE_PROGRAMME',
+  DELETE_PROGRAMME: 'PROGRAMME_DELETE_PROGRAMME',
+  SEARCH_PROGRAMME_MEMBERS: 'PROGRAMME_MEMBERS',
+  ADD_PROGRAMME_MEMBERS: 'PROGRAMME_ADD_MEMBERS',
+  REMOVE_PROGRAMME_MEMBERS: 'PROGRAMME_REMOVE_MEMBERS',
+  GET_MY_PROGRAMMES: 'PROGRAMME_MY_PROGRAMMES',
+  SET_MY_DEFAULT_PROGRAMME: 'PROGRAMME_SET_MY_DEFAULT',
 };
 
 function reducer(
@@ -145,10 +155,151 @@ function reducer(
     projectBeneficiariesPageInfo: {},
     projectBeneficiariesTotalCount: 0,
     errorProjectBeneficiaries: null,
+    fetchingProgrammes: false,
+    fetchedProgrammes: false,
+    errorProgrammes: null,
+    programmes: [],
+    programmesPageInfo: {},
+    programmesTotalCount: 0,
+    fetchingProgramme: false,
+    fetchedProgramme: false,
+    errorProgramme: null,
+    programme: null,
+    fetchingProgrammeMembers: false,
+    fetchedProgrammeMembers: false,
+    errorProgrammeMembers: null,
+    programmeMembers: [],
+    programmeMembersPageInfo: {},
+    programmeMembersTotalCount: 0,
+    fetchingMyProgrammes: false,
+    fetchedMyProgrammes: false,
+    errorMyProgrammes: null,
+    myProgrammes: null,
   },
   action,
 ) {
   switch (action.type) {
+    case REQUEST(ACTION_TYPE.SEARCH_PROGRAMMES):
+      return {
+        ...state,
+        fetchingProgrammes: true,
+        fetchedProgrammes: false,
+        programmes: [],
+        programmesPageInfo: {},
+        programmesTotalCount: 0,
+        errorProgrammes: null,
+      };
+    case SUCCESS(ACTION_TYPE.SEARCH_PROGRAMMES):
+      return {
+        ...state,
+        fetchingProgrammes: false,
+        fetchedProgrammes: true,
+        programmes: parseData(action.payload.data.programme)?.map((programme) => ({
+          ...programme,
+          id: decodeId(programme.id),
+        })),
+        programmesPageInfo: pageInfo(action.payload.data.programme),
+        programmesTotalCount: action.payload.data.programme ? action.payload.data.programme.totalCount : null,
+        errorProgrammes: formatGraphQLError(action.payload),
+      };
+    case ERROR(ACTION_TYPE.SEARCH_PROGRAMMES):
+      return {
+        ...state,
+        fetchingProgrammes: false,
+        errorProgrammes: formatServerError(action.payload),
+      };
+    case REQUEST(ACTION_TYPE.GET_PROGRAMME):
+      return {
+        ...state,
+        fetchingProgramme: true,
+        fetchedProgramme: false,
+        programme: null,
+      };
+    case SUCCESS(ACTION_TYPE.GET_PROGRAMME):
+      return {
+        ...state,
+        fetchingProgramme: false,
+        fetchedProgramme: true,
+        programme: parseData(action.payload.data.programme)?.map((programme) => ({
+          ...programme,
+          id: decodeId(programme.id),
+        }))?.[0],
+        errorProgramme: null,
+      };
+    case ERROR(ACTION_TYPE.GET_PROGRAMME):
+      return {
+        ...state,
+        fetchingProgramme: false,
+        errorProgramme: formatServerError(action.payload),
+      };
+    case CLEAR(ACTION_TYPE.GET_PROGRAMME):
+      return {
+        ...state,
+        fetchingProgramme: false,
+        errorProgramme: null,
+        fetchedProgramme: false,
+        programme: null,
+        mutation: null,
+      };
+    case REQUEST(ACTION_TYPE.SEARCH_PROGRAMME_MEMBERS):
+      return {
+        ...state,
+        fetchingProgrammeMembers: true,
+        fetchedProgrammeMembers: false,
+        programmeMembers: [],
+        programmeMembersPageInfo: {},
+        programmeMembersTotalCount: 0,
+        errorProgrammeMembers: null,
+      };
+    case SUCCESS(ACTION_TYPE.SEARCH_PROGRAMME_MEMBERS):
+      return {
+        ...state,
+        fetchingProgrammeMembers: false,
+        fetchedProgrammeMembers: true,
+        programmeMembers: parseData(action.payload.data.programmeMembers) ?? [],
+        programmeMembersPageInfo: pageInfo(action.payload.data.programmeMembers),
+        programmeMembersTotalCount: action.payload.data.programmeMembers
+          ? action.payload.data.programmeMembers.totalCount : null,
+        errorProgrammeMembers: formatGraphQLError(action.payload),
+      };
+    case ERROR(ACTION_TYPE.SEARCH_PROGRAMME_MEMBERS):
+      return {
+        ...state,
+        fetchingProgrammeMembers: false,
+        errorProgrammeMembers: formatServerError(action.payload),
+      };
+    case REQUEST(ACTION_TYPE.GET_MY_PROGRAMMES):
+      return {
+        ...state,
+        fetchingMyProgrammes: true,
+        errorMyProgrammes: null,
+      };
+    case SUCCESS(ACTION_TYPE.GET_MY_PROGRAMMES):
+      return {
+        ...state,
+        fetchingMyProgrammes: false,
+        fetchedMyProgrammes: true,
+        myProgrammes: action.payload.data?.myProgrammes ?? null,
+        errorMyProgrammes: formatGraphQLError(action.payload),
+      };
+    case ERROR(ACTION_TYPE.GET_MY_PROGRAMMES):
+      return {
+        ...state,
+        fetchingMyProgrammes: false,
+        errorMyProgrammes: formatServerError(action.payload),
+      };
+    case SUCCESS(ACTION_TYPE.CREATE_PROGRAMME):
+      return dispatchMutationResp(state, 'createProgramme', action);
+    case SUCCESS(ACTION_TYPE.UPDATE_PROGRAMME):
+      return dispatchMutationResp(state, 'updateProgramme', action);
+    case SUCCESS(ACTION_TYPE.DELETE_PROGRAMME):
+      return dispatchMutationResp(state, 'deleteProgramme', action);
+    case SUCCESS(ACTION_TYPE.ADD_PROGRAMME_MEMBERS):
+      return dispatchMutationResp(state, 'addProgrammeMembers', action);
+    case SUCCESS(ACTION_TYPE.REMOVE_PROGRAMME_MEMBERS):
+      return dispatchMutationResp(state, 'removeProgrammeMembers', action);
+    case SUCCESS(ACTION_TYPE.SET_MY_DEFAULT_PROGRAMME):
+      return dispatchMutationResp(state, 'setMyDefaultProgramme', action);
     case REQUEST(ACTION_TYPE.GET_FIELDS_FROM_BF_SCHEMA):
       return {
         ...state,

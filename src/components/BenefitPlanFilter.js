@@ -8,6 +8,7 @@ import { CONTAINS_LOOKUP, DEFAULT_DEBOUNCE_TIME, EMPTY_STRING } from '../constan
 import { defaultFilterStyles } from '../util/styles';
 import BeneficiaryStatusPicker from '../pickers/BeneficiaryStatusPicker';
 import BenefitPlanTypePicker from '../pickers/BenefitPlanTypePicker';
+import ProgrammePicker from '../pickers/ProgrammePicker';
 
 function BenefitPlanFilter({
   intl, classes, filters, onChangeFilters, showStatuses,
@@ -65,6 +66,20 @@ function BenefitPlanFilter({
           label="benefitPlan.name"
           value={filterTextFieldValue('name')}
           onChange={onChangeStringFilter('name', CONTAINS_LOOKUP)}
+        />
+      </Grid>
+      <Grid item xs={2} className={classes.item}>
+        <ProgrammePicker
+          withLabel
+          label={formatMessage(intl, 'socialProtection', 'benefitPlan.programme')}
+          value={filterValue('programme') ?? null}
+          onChange={(v) => onChangeFilters([
+            {
+              id: 'programme',
+              value: v,
+              filter: v ? `programme_Id: "${v.uuid}"` : '',
+            },
+          ])}
         />
       </Grid>
       <Grid item xs={3} className={classes.item}>

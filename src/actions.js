@@ -7,6 +7,8 @@ import {
   formatGQLString,
   graphqlWithVariables,
   prepareMutation,
+  decodeId,
+  journalize,
 } from '@openimis/fe-core';
 import { ACTION_TYPE } from './reducer';
 import {
@@ -35,6 +37,40 @@ const BENEFIT_PLAN_FULL_PROJECTION = () => [
   'version',
   'userUpdated {username}',
   'hasPaymentPlans',
+];
+
+const BENEFIT_PLAN_WITH_PROGRAMME_PROJECTION = () => [
+  ...BENEFIT_PLAN_FULL_PROJECTION(),
+  'programme {id, uuid, code, name}',
+];
+
+const PROGRAMME_FULL_PROJECTION = () => [
+  'id',
+  'uuid',
+  'code',
+  'name',
+  'description',
+  'isDeleted',
+  'dateCreated',
+  'dateUpdated',
+  'version',
+];
+
+const PROGRAMME_MEMBER_PROJECTION = () => [
+  'id',
+  'uuid',
+  'isDefault',
+  'userId',
+  'username',
+  'lastName',
+  'otherNames',
+];
+
+const MY_PROGRAMMES_PROJECTION = () => [
+  'id',
+  'uuid',
+  'isDefault',
+  'programme { id uuid code name description }',
 ];
 
 const UPLOAD_HISTORY_FULL_PROJECTION = () => [
@@ -98,7 +134,7 @@ const PROJECT_FULL_PROJECTION = (modulesManager) => [
 ];
 
 export function fetchBenefitPlans(params) {
-  const payload = formatPageQueryWithCount('benefitPlan', params, BENEFIT_PLAN_FULL_PROJECTION());
+  const payload = formatPageQueryWithCount('benefitPlan', params, BENEFIT_PLAN_WITH_PROGRAMME_PROJECTION());
   return graphql(payload, ACTION_TYPE.SEARCH_BENEFIT_PLANS);
 }
 
@@ -217,7 +253,7 @@ export const clearBeneficiariesGroup = () => (dispatch) => {
 };
 
 export function fetchBenefitPlan(modulesManager, params) {
-  const payload = formatPageQuery('benefitPlan', params, BENEFIT_PLAN_FULL_PROJECTION(modulesManager));
+  const payload = formatPageQuery('benefitPlan', params, BENEFIT_PLAN_WITH_PROGRAMME_PROJECTION(modulesManager));
   return graphql(payload, ACTION_TYPE.GET_BENEFIT_PLAN);
 }
 
@@ -328,6 +364,19 @@ function dateTimeToDate(date) {
   return date.split('T')[0];
 }
 
+// Raw programme uuid of a benefit plan form value; undefined when not loaded, null when detached.
+function programmeUuid(programme) {
+  if (!programme) return programme;
+  return programme.uuid ?? decodeId(programme.id);
+}
+
+// An update leaves the programme unchanged when it is omitted and detaches it when it is null.
+function formatProgrammeIdGQL(benefitPlan) {
+  const uuid = programmeUuid(benefitPlan?.programme);
+  if (uuid) return `programmeId: "${uuid}"`;
+  return benefitPlan?.id && benefitPlan.programme === null ? 'programmeId: null' : '';
+}
+
 function formatBenefitPlanGQL(benefitPlan) {
   return `
     ${benefitPlan?.id ? `id: "${benefitPlan.id}"` : ''}
@@ -342,7 +391,8 @@ function formatBenefitPlanGQL(benefitPlan) {
     ${benefitPlan?.description ? `description: "${formatGQLString(benefitPlan.description)}"` : 'description: ""'}
     ${benefitPlan?.beneficiaryDataSchema
     ? `beneficiaryDataSchema: ${JSON.stringify(benefitPlan.beneficiaryDataSchema)}` : 'beneficiaryDataSchema: "{}"'}
-    ${benefitPlan?.jsonExt ? `jsonExt: ${JSON.stringify(benefitPlan.jsonExt)}` : ''}`;
+    ${benefitPlan?.jsonExt ? `jsonExt: ${JSON.stringify(benefitPlan.jsonExt)}` : ''}
+    ${formatProgrammeIdGQL(benefitPlan)}`;
 }
 
 function formatBeneficiaryGQL(beneficiary) {
@@ -870,3 +920,135 @@ export function bulkUpdateGroupBeneficiaryTimeEntries(params, clientMutationLabe
     },
   );
 }
+
+export function fetchProgrammes(params) {
+  const payload = formatPageQueryWithCount('programme', params, PROGRAMME_FULL_PROJECTION());
+  return graphql(payload, ACTION_TYPE.SEARCH_PROGRAMMES);
+}
+
+export function fetchProgramme(params) {
+  const payload = formatPageQuery('programme', params, PROGRAMME_FULL_PROJECTION());
+  return graphql(payload, ACTION_TYPE.GET_PROGRAMME);
+}
+
+export const clearProgramme = () => (dispatch) => {
+  dispatch({
+    type: CLEAR(ACTION_TYPE.GET_PROGRAMME),
+  });
+};
+
+export function fetchProgrammeMembers(programmeId, params = []) {
+  const payload = formatPageQueryWithCount(
+    'programmeMembers',
+    [`programmeId: "${programmeId}"`, ...params],
+    PROGRAMME_MEMBER_PROJECTION(),
+  );
+  return graphql(payload, ACTION_TYPE.SEARCH_PROGRAMME_MEMBERS);
+}
+
+export function fetchMyProgrammes() {
+  const payload = formatQuery('myProgrammes', null, MY_PROGRAMMES_PROJECTION());
+  return graphql(payload, ACTION_TYPE.GET_MY_PROGRAMMES);
+}
+
+// Outcome of an asynchronous mutation read from its mutation log: { status, error }, null when unknown.
+export function awaitMutationOutcome(clientMutationId) {
+  return async (dispatch) => {
+    let attempts = 0;
+    let log;
+    do {
+      if (log) {
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve) => { setTimeout(resolve, 100 * attempts); });
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const response = await dispatch(graphqlWithVariables(
+        `
+          query ($clientMutationId: String) {
+            mutationLogs (clientMutationId: $clientMutationId) {
+              edges { node { status clientMutationId error } }
+            }
+          }
+        `,
+        { clientMutationId },
+      ));
+      if (response?.error) return null;
+      log = response?.payload?.data?.mutationLogs?.edges?.[0]?.node;
+    } while ((!log || log.status === 0) && attempts++ < 10);
+    return log || null;
+  };
+}
+
+function programmeMutation(operation, input, successType, clientMutationLabel) {
+  const mutation = formatMutation(operation, input, clientMutationLabel);
+  const requestedDateTime = new Date();
+  return async (dispatch, getState) => {
+    await dispatch(graphql(
+      mutation.payload,
+      [REQUEST(ACTION_TYPE.MUTATION), SUCCESS(successType), ERROR(ACTION_TYPE.MUTATION)],
+      {
+        actionType: successType,
+        clientMutationId: mutation.clientMutationId,
+        clientMutationLabel,
+        requestedDateTime,
+      },
+    ));
+    const submitted = getState().socialProtection.mutation;
+    if (submitted?.clientMutationId === mutation.clientMutationId) {
+      dispatch(journalize({ ...submitted }));
+    }
+    return dispatch(awaitMutationOutcome(mutation.clientMutationId));
+  };
+}
+
+function formatProgrammeGQL(programme) {
+  return `
+    ${programme?.id ? `id: "${programme.id}"` : ''}
+    ${programme?.code ? `code: "${formatGQLString(programme.code)}"` : ''}
+    ${programme?.name ? `name: "${formatGQLString(programme.name)}"` : ''}
+    description: "${formatGQLString(programme?.description ?? '')}"`;
+}
+
+const formatUuidList = (uuids) => `[${(uuids || []).map((uuid) => `"${uuid}"`).join(',')}]`;
+
+export const createProgramme = (programme, clientMutationLabel) => programmeMutation(
+  'createProgramme',
+  formatProgrammeGQL(programme),
+  ACTION_TYPE.CREATE_PROGRAMME,
+  clientMutationLabel,
+);
+
+export const updateProgramme = (programme, clientMutationLabel) => programmeMutation(
+  'updateProgramme',
+  formatProgrammeGQL(programme),
+  ACTION_TYPE.UPDATE_PROGRAMME,
+  clientMutationLabel,
+);
+
+export const deleteProgramme = (programme, clientMutationLabel) => programmeMutation(
+  'deleteProgramme',
+  `ids: ["${programme?.id}"]`,
+  ACTION_TYPE.DELETE_PROGRAMME,
+  clientMutationLabel,
+);
+
+export const addProgrammeMembers = (programmeId, userIds, clientMutationLabel) => programmeMutation(
+  'addProgrammeMembers',
+  `programmeId: "${programmeId}" userIds: ${formatUuidList(userIds)}`,
+  ACTION_TYPE.ADD_PROGRAMME_MEMBERS,
+  clientMutationLabel,
+);
+
+export const removeProgrammeMembers = (programmeId, userIds, clientMutationLabel) => programmeMutation(
+  'removeProgrammeMembers',
+  `programmeId: "${programmeId}" userIds: ${formatUuidList(userIds)}`,
+  ACTION_TYPE.REMOVE_PROGRAMME_MEMBERS,
+  clientMutationLabel,
+);
+
+export const setMyDefaultProgramme = (programmeId, clientMutationLabel) => programmeMutation(
+  'setMyDefaultProgramme',
+  `programmeId: "${programmeId}"`,
+  ACTION_TYPE.SET_MY_DEFAULT_PROGRAMME,
+  clientMutationLabel,
+);

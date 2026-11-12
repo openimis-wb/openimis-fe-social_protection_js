@@ -120,6 +120,7 @@ function BenefitPlanSearcher({
     const headers = [
       'benefitPlan.code',
       'benefitPlan.name',
+      'benefitPlan.programme',
       'benefitPlan.type',
       'benefitPlan.dateValidFrom',
       'benefitPlan.dateValidTo',
@@ -150,6 +151,7 @@ function BenefitPlanSearcher({
     const formatters = [
       (benefitPlan) => benefitPlan.code,
       (benefitPlan) => benefitPlan.name,
+      (benefitPlan) => benefitPlan.programme?.name ?? '',
       (benefitPlan) => benefitPlan.type,
       (benefitPlan) => formatDateFromISO(modulesManager, intl, benefitPlan.dateValidFrom),
       (benefitPlan) => formatDateFromISO(modulesManager, intl, benefitPlan.dateValidTo),
@@ -197,6 +199,7 @@ function BenefitPlanSearcher({
   const sorts = () => [
     ['code', true],
     ['name', true],
+    null,
     ['type', true],
     ['dateValidFrom', true],
     ['dateValidTo', true],

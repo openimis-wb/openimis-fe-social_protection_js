@@ -1,6 +1,8 @@
 import { fetchProjectBeneficiaries, fetchProjectGroupBeneficiaries } from './actions';
 import { ACTION_TYPE } from './reducer';
 import { REQUEST } from './util/action-type';
+import { getActiveProgramme, setProgrammeChoice } from './util/programme-context';
+import { INVALID_PROGRAMME_HEADER_ERROR } from './util/programme-errors';
 
 function decodeCursorOffset(cursor) {
   if (!cursor) return null;
@@ -69,3 +71,24 @@ const projectBeneficiariesMiddleware = (store) => (next) => (action) => {
 };
 
 export default projectBeneficiariesMiddleware;
+
+const responseErrors = (action) => {
+  const payload = action?.payload;
+  const errors = payload?.errors ?? payload?.response?.errors;
+  return Array.isArray(errors) ? errors : [];
+};
+
+// A request rejected because the stored programme is no longer valid for the user:
+// the stored choice is dropped and the page reloaded so that every list is read again.
+// Nothing happens when no programme is active, which keeps the reload from repeating.
+export const invalidProgrammeHeaderMiddleware = () => (next) => (action) => {
+  const result = next(action);
+  if (
+    getActiveProgramme()
+    && responseErrors(action).some((e) => e?.message?.includes(INVALID_PROGRAMME_HEADER_ERROR))
+  ) {
+    setProgrammeChoice(null);
+    window.location.reload();
+  }
+  return result;
+};
