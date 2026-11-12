@@ -28,7 +28,7 @@ function ProgrammePicker(props) {
   const { isLoading, data, error } = useGraphqlQuery(
     `
     query ProgrammePicker($name: String, $isDeleted: Boolean) {
-      programme(name_Icontains: $name, isDeleted: $isDeleted, orderBy: ["code"]) {
+      programme(name_Icontains: $name, isDeleted: $isDeleted) {
         edges {
           node {
             id

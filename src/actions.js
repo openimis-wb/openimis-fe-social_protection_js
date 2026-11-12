@@ -364,20 +364,23 @@ function dateTimeToDate(date) {
   return date.split('T')[0];
 }
 
-// Raw programme uuid of a benefit plan form value; undefined when not loaded, null when detached.
+// Raw programme uuid of a benefit plan form value; falsy when the plan has no programme or it is not loaded.
 function programmeUuid(programme) {
-  if (!programme) return programme;
-  return programme.uuid ?? decodeId(programme.id);
+  if (!programme) return null;
+  return (programme.uuid ?? (programme.id ? decodeId(programme.id) : null))?.toLowerCase() ?? null;
 }
 
-// An update leaves the programme unchanged when it is omitted and detaches it when it is null.
-function formatProgrammeIdGQL(benefitPlan) {
+// Create sends programmeId when a programme is chosen. Update sends programmeId only when the
+// programme differs from the saved one, and detachProgramme: true when it was removed; otherwise neither.
+function formatProgrammeGQL(benefitPlan, savedBenefitPlan) {
   const uuid = programmeUuid(benefitPlan?.programme);
-  if (uuid) return `programmeId: "${uuid}"`;
-  return benefitPlan?.id && benefitPlan.programme === null ? 'programmeId: null' : '';
+  if (!benefitPlan?.id) return uuid ? `programmeId: "${uuid}"` : '';
+  const savedUuid = programmeUuid(savedBenefitPlan?.programme);
+  if (uuid) return uuid === savedUuid ? '' : `programmeId: "${uuid}"`;
+  return savedUuid && benefitPlan.programme === null ? 'detachProgramme: true' : '';
 }
 
-function formatBenefitPlanGQL(benefitPlan) {
+export function formatBenefitPlanGQL(benefitPlan, savedBenefitPlan) {
   return `
     ${benefitPlan?.id ? `id: "${benefitPlan.id}"` : ''}
     ${benefitPlan?.name ? `name: "${formatGQLString(benefitPlan.name)}"` : ''}
@@ -392,7 +395,7 @@ function formatBenefitPlanGQL(benefitPlan) {
     ${benefitPlan?.beneficiaryDataSchema
     ? `beneficiaryDataSchema: ${JSON.stringify(benefitPlan.beneficiaryDataSchema)}` : 'beneficiaryDataSchema: "{}"'}
     ${benefitPlan?.jsonExt ? `jsonExt: ${JSON.stringify(benefitPlan.jsonExt)}` : ''}
-    ${formatProgrammeIdGQL(benefitPlan)}`;
+    ${formatProgrammeGQL(benefitPlan, savedBenefitPlan)}`;
 }
 
 function formatBeneficiaryGQL(beneficiary) {
@@ -431,8 +434,12 @@ export function createBenefitPlan(benefitPlan, clientMutationLabel) {
   );
 }
 
-export function updateBenefitPlan(benefitPlan, clientMutationLabel) {
-  const mutation = formatMutation('updateBenefitPlan', formatBenefitPlanGQL(benefitPlan), clientMutationLabel);
+export function updateBenefitPlan(benefitPlan, clientMutationLabel, savedBenefitPlan) {
+  const mutation = formatMutation(
+    'updateBenefitPlan',
+    formatBenefitPlanGQL(benefitPlan, savedBenefitPlan),
+    clientMutationLabel,
+  );
   const requestedDateTime = new Date();
   return graphql(
     mutation.payload,
@@ -1001,7 +1008,7 @@ function programmeMutation(operation, input, successType, clientMutationLabel) {
   };
 }
 
-function formatProgrammeGQL(programme) {
+function formatProgrammeEntityGQL(programme) {
   return `
     ${programme?.id ? `id: "${programme.id}"` : ''}
     ${programme?.code ? `code: "${formatGQLString(programme.code)}"` : ''}
@@ -1013,14 +1020,14 @@ const formatUuidList = (uuids) => `[${(uuids || []).map((uuid) => `"${uuid}"`).j
 
 export const createProgramme = (programme, clientMutationLabel) => programmeMutation(
   'createProgramme',
-  formatProgrammeGQL(programme),
+  formatProgrammeEntityGQL(programme),
   ACTION_TYPE.CREATE_PROGRAMME,
   clientMutationLabel,
 );
 
 export const updateProgramme = (programme, clientMutationLabel) => programmeMutation(
   'updateProgramme',
-  formatProgrammeGQL(programme),
+  formatProgrammeEntityGQL(programme),
   ACTION_TYPE.UPDATE_PROGRAMME,
   clientMutationLabel,
 );

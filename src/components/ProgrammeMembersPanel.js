@@ -52,7 +52,7 @@ function ProgrammeMembersPanel({
 
   const load = (nextPage = page, nextPageSize = pageSize) => dispatch(fetchProgrammeMembers(
     programmeId,
-    [`first: ${nextPageSize}`, `offset: ${nextPage * nextPageSize}`, 'orderBy: ["user__username"]'],
+    [`first: ${nextPageSize}`, `offset: ${nextPage * nextPageSize}`],
   ));
 
   useEffect(() => {

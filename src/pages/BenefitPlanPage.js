@@ -24,8 +24,9 @@ import {
 } from '../constants';
 import {
   fetchBenefitPlan, deleteBenefitPlan, closeBenefitPlan, updateBenefitPlan, clearBenefitPlan, createBenefitPlan,
-  undoDeleteBenefitPlan,
+  undoDeleteBenefitPlan, awaitMutationOutcome,
 } from '../actions';
+import { isFailedOutcome, programmeErrorTranslationId, programmeFailureAlert } from '../util/programme-errors';
 import BenefitPlanHeadPanel from '../components/BenefitPlanHeadPanel';
 import BenefitPlanTabPanel from '../components/BenefitPlanTabPanel';
 import { ACTION_TYPE } from '../reducer';
@@ -59,6 +60,8 @@ function BenefitPlanPage({
   isBenefitPlanNameValid,
   isBenefitPlanCodeValid,
   isBenefitPlanSchemaValid,
+  awaitMutationOutcome,
+  programmeFailureAlert,
 }) {
   const [editedBenefitPlan, setEditedBenefitPlan] = useState({});
   const [confirmedAction, setConfirmedAction] = useState(() => null);
@@ -78,9 +81,20 @@ function BenefitPlanPage({
 
   const back = () => history.goBack();
 
+  // Alerts the translated reason when the backend refused the mutation for a programme rule.
+  const reportProgrammeRefusal = (clientMutationId) => {
+    if (!clientMutationId) return;
+    awaitMutationOutcome(clientMutationId).then((outcome) => {
+      if (isFailedOutcome(outcome) && programmeErrorTranslationId(outcome.error)) {
+        programmeFailureAlert((id) => formatMessage(intl, 'socialProtection', id), outcome);
+      }
+    });
+  };
+
   useEffect(() => {
     if (prevSubmittingMutationRef.current && !submittingMutation) {
       journalize(mutation);
+      reportProgrammeRefusal(mutation?.clientMutationId);
       if ([
         ACTION_TYPE.DELETE_BENEFIT_PLAN,
         ACTION_TYPE.UNDO_DELETE_BENEFIT_PLAN,
@@ -143,6 +157,7 @@ function BenefitPlanPage({
       updateBenefitPlan(
         editedBenefitPlan,
         formatMessageWithValues(intl, 'socialProtection', 'benefitPlan.update.mutationLabel', params),
+        benefitPlan,
       );
     } else {
       createBenefitPlan(
@@ -296,6 +311,8 @@ const mapDispatchToProps = (dispatch) => bindActionCreators({
   coreConfirm,
   clearConfirm,
   journalize,
+  awaitMutationOutcome,
+  programmeFailureAlert,
 }, dispatch);
 
 export default withHistory(
